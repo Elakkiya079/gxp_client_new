@@ -1,0 +1,32 @@
+/* App Styles - Primarily uses Tailwind CSS utilities */
+/* Keep this minimal as Tailwind handles most styling */
+
+.imgLoad {
+  background: url(../src/assets/search_loader.gif);
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(180deg, #E78C87 50%, #FBECEC 100%);
+  border-radius: 50%;
+
+}
+
+#bg {
+  height: 100%;
+  background: url(../src/assets/search_loader.gif);
+  mix-blend-mode: screen;
+  background-size: 200%;
+  border-radius: 50%;
+  background-position: -250px -175px;
+}
+
+@media (max-width: 768px) {
+  nav ul {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  nav button {
+    display: block !important;
+  }
+}
+
