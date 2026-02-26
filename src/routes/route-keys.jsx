@@ -4,4 +4,5 @@ export const RouteKeys = {
 	Login: "/",
 	MirAIChat: "/chat",
 	GenerateDocument: "/generate-document",
+	WelcomePage:"/welcome",
 };

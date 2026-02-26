@@ -8,14 +8,14 @@ const Home = lazy(() => import("../views/Home"));
 const MirAIChat = lazy(() => import("../views/MirAIChat"));
 const DocumentGenerator = lazy(() => import("../views/DocumentGenerator"));
 const AnalystAgent = lazy(() => import("../views/AnalystAgent"));
-
+const Welcome = lazy(()=> import("../views/Welcome.jsx"))
 export default function NavRoute() {
 	return (
 		<Suspense
 			fallback={<div style={{ padding: "20px", textAlign: "center" }}></div>}>
 			<Routes>
 				<Route path={RouteKeys.Login} element={<Login />} />
-
+				<Route path={RouteKeys.WelcomePage} element={<WelcomePage />} />
 				{/*<Route
           path={RouteKeys.WelcomePage}
           element={<WelcomePage/>}

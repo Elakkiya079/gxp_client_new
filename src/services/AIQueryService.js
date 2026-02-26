@@ -142,14 +142,14 @@ class AIQueryServiceClass {
   async getStoryArtifacts() {
     try {
       const response = await fetch(
-        'http://35.91.160.54:8000/get_story_artifacts',
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
+				"http://127.0.0.1:8000/get_story_artifacts",
+				{
+					method: "GET",
+					headers: {
+						"Content-Type": "application/json",
+					},
+				},
+			);
 
       if (!response.ok) {
         throw new Error(
