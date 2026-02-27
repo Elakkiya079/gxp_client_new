@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import ChatInput from "./ChatInput";
 import ResultsTable from "./ResultsTable";
 import ARPTemplateSelector from "./ARPTemplateSelector";
+import DocumentConfirmModal from "./DocumentConfirmModal";
 import takedaLogo from "../assets/takeda_logo.svg";
 
 const PROCESSING_DELAY_MS = 3000;
@@ -13,6 +14,7 @@ function SplitScreenLayout({
 	query,
 	setQuery,
 	isLoading,
+	isChatDisabled,
 	onKeyPress,
 	onSendQuery,
 	onFileNameClick,
@@ -25,6 +27,8 @@ function SplitScreenLayout({
 		[chatHistory],
 	);
 	const [now, setNow] = useState(() => Date.now());
+	const [showDocConfirm, setShowDocConfirm] = useState(false);
+	const [pendingTemplate, setPendingTemplate] = useState(null);
 
 	// Force a re-render while a message is processing so we can swap the label
 	useEffect(() => {
@@ -199,6 +203,7 @@ function SplitScreenLayout({
 						onKeyPress={onKeyPress}
 						onSendQuery={onSendQuery}
 						isLoading={isLoading}
+						isDisabled={isChatDisabled}
 					/>
 				</div>
 			</div>
@@ -209,7 +214,12 @@ function SplitScreenLayout({
 					elluminateChat?.responseMessage &&
 					/please choose an arp template/i.test(elluminateChat.responseMessage)
 				) ?
-					<ARPTemplateSelector onSelect={onTemplateSelect} />
+					<ARPTemplateSelector
+						onSelect={(template) => {
+							setPendingTemplate(template);
+							setShowDocConfirm(true);
+						}}
+					/>
 				: (
 					elluminateChat?.sources?.length > 0 ||
 					elluminateChat?.tableData?.length > 0
@@ -254,6 +264,22 @@ function SplitScreenLayout({
 					</div>
 				}
 			</div>
+
+			<DocumentConfirmModal
+				show={showDocConfirm}
+				docTypeLabel={pendingTemplate || "Document"}
+				onConfirm={() => {
+					if (pendingTemplate) {
+						onTemplateSelect?.(pendingTemplate);
+					}
+					setShowDocConfirm(false);
+					setPendingTemplate(null);
+				}}
+				onCancel={() => {
+					setShowDocConfirm(false);
+					setPendingTemplate(null);
+				}}
+			/>
 		</div>
 	);
 }

@@ -1,21 +1,29 @@
 import React from "react";
 
-function ChatInput({ query, setQuery, onKeyPress, onSendQuery, isLoading }) {
+function ChatInput({
+	query,
+	setQuery,
+	onKeyPress,
+	onSendQuery,
+	isLoading,
+	isDisabled = false,
+}) {
 	return (
 		<div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
 			<textarea
 				value={query}
-				onChange={(e) => setQuery(e.target.value)}
+				onChange={(e) => !isDisabled && setQuery(e.target.value)}
 				onKeyPress={onKeyPress}
+				disabled={isDisabled}
 				placeholder="Ask a question about documents, releases, SOPs, CRs or defects…"
-				className="w-full bg-transparent text-sm text-gray-700 placeholder-gray-400 focus:outline-none resize-none mb-3"
+				className="w-full bg-transparent text-sm text-gray-700 placeholder-gray-400 focus:outline-none resize-none mb-3 disabled:cursor-not-allowed disabled:text-gray-400"
 				rows="2"
 			/>
 			<div className="flex justify-end">
 				<button
 					onClick={onSendQuery}
-					disabled={isLoading || !query.trim()}
-					className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition disabled:bg-red-400">
+					disabled={isLoading || !query.trim() || isDisabled}
+					className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition disabled:bg-red-400 disabled:cursor-not-allowed">
 					{isLoading ?
 						<svg
 							className="w-4 h-4 animate-spin"

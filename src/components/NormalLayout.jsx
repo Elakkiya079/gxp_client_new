@@ -8,6 +8,7 @@ function NormalLayout({
 	query,
 	setQuery,
 	isLoading,
+	isChatDisabled,
 	onKeyPress,
 	onSendQuery,
 	onFileNameClick,
@@ -52,6 +53,7 @@ function NormalLayout({
 							isLoading={isLoading}
 							onKeyPress={onKeyPress}
 							onSendQuery={onSendQuery}
+							isDisabled={isChatDisabled}
 						/>
 					</>
 				:	<>
@@ -64,8 +66,9 @@ function NormalLayout({
 									{/* Text Area */}
 									<textarea
 										value={query}
-										onChange={(e) => setQuery(e.target.value)}
+										onChange={(e) => !isChatDisabled && setQuery(e.target.value)}
 										onKeyPress={onKeyPress}
+										disabled={isChatDisabled}
 										placeholder="Ask a question about documents, releases, SOPs, CRs or defects…"
 										className="w-full bg-transparent text-gray-700 placeholder-gray-400 focus:outline-none resize-none mb-4 text-base leading-relaxed"
 										rows="3"
@@ -75,7 +78,7 @@ function NormalLayout({
 									<div className="flex items-center justify-end gap-3">
 										<button
 											onClick={onSendQuery}
-											disabled={isLoading || !query.trim()}
+											disabled={isLoading || !query.trim() || isChatDisabled}
 											className="w-10 h-10 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition shadow-md disabled:bg-red-400 disabled:cursor-not-allowed">
 											{isLoading ?
 												<svg

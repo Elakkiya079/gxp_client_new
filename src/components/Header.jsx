@@ -13,6 +13,11 @@ function Header({ onLogoClick }) {
 		// Optionally, redirect to /chat (if not already there)
 		navigate("/chat", { replace: true });
 	};
+	const handleBackToHome = () => {
+		sessionStorage.clear();
+		if (onLogoClick) onLogoClick();
+		navigate("/welcome", { replace: true });
+	};
 
 	return (
 		<div className="fixed top-0 left-0 right-0 bg-white shadow-sm z-40 h-16 flex items-center px-8">
@@ -21,10 +26,22 @@ function Header({ onLogoClick }) {
 				<img
 					src={takedaLogo}
 					alt="Analytics Dashboard"
-					className="max-w-lg object-contain cursor-pointer"
+					className="max-w-lg object-contain cursor-pointer mr-8"
 					onClick={handleLogoClick}
 					title="Clear session and go to chat"
 				/>
+				<button
+					type="button"
+					onClick={handleBackToHome}
+					className="flex items-center text-sm font-medium text-gray-700 hover:text-red-600 focus:outline-none">
+					<span className="mr-2 text-lg">←</span>
+					<span>Back to Home</span>
+				</button>
+
+				<span className="ml-4 text-xl font-semibold tracking-wide">
+					<span className="text-gray-800">GxP</span>
+					<span className="text-red-600"> AI</span>
+				</span>
 			</div>
 
 			{/* Right: Notification & User */}
@@ -36,24 +53,19 @@ function Header({ onLogoClick }) {
 				</div>
 			</div> */}
 			{/* Right: Notification & User */}
-<div className="flex items-center gap-6">
-  <div className="flex items-center gap-3">
-    
-    {/* User Name */}
-    <span className="text-sm font-medium text-gray-700">
-      Test User
-    </span>
+			<div className="flex items-center gap-6">
+				<div className="flex items-center gap-3">
+					{/* User Name */}
+					<span className="text-sm font-medium text-gray-700">Test User</span>
 
-    {/* Avatar */}
-    <div
-      className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm"
-      style={{ backgroundColor: "#ED1C24" }}
-    >
-      TU
-    </div>
-
-  </div>
-</div>
+					{/* Avatar */}
+					<div
+						className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+						style={{ backgroundColor: "#ED1C24" }}>
+						TU
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }

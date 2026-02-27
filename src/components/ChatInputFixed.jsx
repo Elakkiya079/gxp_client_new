@@ -7,6 +7,7 @@ function ChatInputFixed({
 	isLoading,
 	onKeyPress,
 	onSendQuery,
+	isDisabled = false,
 }) {
 	return (
 		<div
@@ -16,10 +17,11 @@ function ChatInputFixed({
 				<div className="bg-white border-2 border-gray-200 rounded-2xl p-6 mb-8 shadow-sm hover:border-gray-300 transition">
 					<textarea
 						value={query}
-						onChange={(e) => setQuery(e.target.value)}
+						onChange={(e) => !isDisabled && setQuery(e.target.value)}
 						onKeyPress={onKeyPress}
+						disabled={isDisabled}
 						placeholder="Ask a question about documents, releases, SOPs, CRs or defects…"
-						className="w-full bg-transparent text-gray-700 placeholder-gray-400 focus:outline-none resize-none mb-4 text-base leading-relaxed"
+						className="w-full bg-transparent text-gray-700 placeholder-gray-400 focus:outline-none resize-none mb-4 text-base leading-relaxed disabled:cursor-not-allowed disabled:text-gray-400"
 						rows="3"
 					/>
 
@@ -34,7 +36,7 @@ function ChatInputFixed({
 
 						<button
 							onClick={onSendQuery}
-							disabled={isLoading || !query.trim()}
+							disabled={isLoading || !query.trim() || isDisabled}
 							className="w-10 h-10 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition shadow-md disabled:bg-red-400 disabled:cursor-not-allowed">
 							{isLoading ?
 								<svg

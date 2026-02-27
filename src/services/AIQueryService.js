@@ -52,10 +52,30 @@ class AIQueryServiceClass {
     this.connect(threadId);
   }
 
+  // Gracefully close the WebSocket connection and reset session state
+  disconnectWebsocket() {
+    try {
+      if (this.socket) {
+        this.socket.close();
+      }
+    } catch (e) {
+      console.error('Error while closing WebSocket:', e);
+    } finally {
+      this.socket = null;
+      this.isConnected = false;
+      this.sessionThreadId = null;
+      this.messageQueue = [];
+    }
+  }
+
   /**
    * Send query via WebSocket
+   * @param {string} userQuery - Current user question / input
+   * @param {Array} selectedSources - Optional list of selected sources
+   * @param {string|null} threadId - Optional external thread id
+   * @param {string|null} chatbotResponse - Optional previous chatbot response text
    */
-  sendProcessQuery(userQuery, selectedSources = [], threadId = null) {
+  sendProcessQuery(userQuery, selectedSources = [], threadId = null, chatbotResponse = null) {
     return new Promise((resolve, reject) => {
       try {
         this.connect(threadId);
@@ -73,6 +93,10 @@ class AIQueryServiceClass {
           id: uuidv4(),
           thread_id: this.sessionThreadId,
         };
+
+        if (chatbotResponse) {
+          payload.chatbot_response = chatbotResponse;
+        }
 
         if (selectedSources?.length > 0) {
           payload.selected_sources = selectedSources;
@@ -139,39 +163,39 @@ class AIQueryServiceClass {
   /**
    * Retrieve story and defect artifacts
    */
-  async getStoryArtifacts() {
-    try {
-      const response = await fetch(
-				"http://127.0.0.1:8000/get_story_artifacts",
-				{
-					method: "GET",
-					headers: {
-						"Content-Type": "application/json",
-					},
-				},
-			);
+async  getStoryArtifacts(template) {
+  try {
+    const response = await fetch("http://localhost:9004/generate-json", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        template: template,
+      }),
+    });
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch artifacts: ${response.status} ${response.statusText}`,
-        );
-      }
-
-      const data = await response.json();
-
-      return {
-        success: true,
-        data,
-      };
-    } catch (error) {
-      console.error('Error fetching story artifacts:', error?.message);
-
-      return {
-        success: false,
-        error: error?.message || 'Failed to retrieve artifacts',
-      };
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch artifacts: ${response.status} ${response.statusText}`
+      );
     }
+
+    const data = await response.json();
+
+    return {
+      success: true,
+      data: data,
+    };
+  } catch (error) {
+    console.error("Error fetching story artifacts:", error?.message);
+
+    return {
+      success: false,
+      error: error?.message || "Failed to retrieve artifacts",
+    };
   }
+}
 }
 
 const AIQueryService = new AIQueryServiceClass();

@@ -13,12 +13,14 @@ function MirAIChat() {
 		setChatHistory([]);
 		setThreadId(null);
 		setQuery("");
+		setIsChatDisabled(false);
 	};
 	const navigate = useNavigate();
 	const [query, setQuery] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [chatHistory, setChatHistory] = useState([]);
 	const [threadId, setThreadId] = useState(null);
+	const [isChatDisabled, setIsChatDisabled] = useState(false);
 	// Session storage key for persisting chat history within the browser tab
 	const STORAGE_KEY = "mirai_chat_history";
 
@@ -69,6 +71,10 @@ function MirAIChat() {
 	};
 	const chatEndRef = useRef(null);
 	const handleSendQuery = async (override) => {
+		// If chat has been disabled (e.g. after confirmation), block further sends
+		if (isChatDisabled) {
+			return;
+		}
 		// Allow being called as an event handler or with a custom query string
 		if (override && typeof override === "object" && override.preventDefault) {
 			override.preventDefault();
@@ -79,6 +85,22 @@ function MirAIChat() {
 		if (currentQuery) {
 			setIsLoading(true);
 			setQuery("");
+
+			// Determine the previous chatbot response to send along with this query
+			let previousChatbotResponse = null;
+			if (chatHistory.length > 0) {
+				const lastChat = chatHistory[chatHistory.length - 1];
+				const firstRow = lastChat.tableData?.[0];
+
+				// If the UI is showing the "artifacts" confirmation question, send that
+				if (firstRow && firstRow.document_id) {
+					previousChatbotResponse =
+						"Did you receive all the required artifacts linked to the requested CR number?";
+				} else if (lastChat.responseMessage) {
+					// Otherwise, send the last chatbot response message (if any)
+					previousChatbotResponse = lastChat.responseMessage;
+				}
+			}
 
 			// Add processing message with user query
 			const messageId = Date.now();
@@ -101,6 +123,7 @@ function MirAIChat() {
 					currentQuery,
 					null,
 					threadId,
+					previousChatbotResponse,
 				);
 				
 				console.log("result------->", result);
@@ -183,6 +206,14 @@ function MirAIChat() {
 					chatData.responseMessage = result.message;
 				}
 
+				// If backend asks to end the conversation and reload, disable chat and close socket
+				const finalConfirmationText =
+					"Thank you for your confirmation, Reload page to Continue";
+				if (chatData.responseMessage === finalConfirmationText) {
+					setIsChatDisabled(true);
+					AIQueryService.disconnectWebsocket();
+				}
+
 				// Replace the processing message with the actual response
 				setChatHistory((prev) =>
 					prev.map((chat) => (chat.id === messageId ? chatData : chat)),
@@ -220,6 +251,7 @@ function MirAIChat() {
 	};
 
 	const handleKeyPress = (e) => {
+		if (isChatDisabled) return;
 		if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault();
 			handleSendQuery();
@@ -301,6 +333,7 @@ function MirAIChat() {
 				changeRequestId,
 				null,
 				threadId,
+				null,
 			);
 			
 			
@@ -424,6 +457,7 @@ function MirAIChat() {
 					query={query}
 					setQuery={setQuery}
 					isLoading={isLoading}
+					isChatDisabled={isChatDisabled}
 					onKeyPress={handleKeyPress}
 					onSendQuery={handleSendQuery}
 					onFileNameClick={handleFileNameClick}
@@ -444,6 +478,7 @@ function MirAIChat() {
 					query={query}
 					setQuery={setQuery}
 					isLoading={isLoading}
+					isChatDisabled={isChatDisabled}
 					onKeyPress={handleKeyPress}
 					onSendQuery={handleSendQuery}
 					onFileNameClick={handleFileNameClick}

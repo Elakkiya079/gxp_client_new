@@ -4,16 +4,17 @@ function DocumentConfirmModal({ show, docTypeLabel, onConfirm, onCancel }) {
 	if (!show) return null;
 
 	return (
-		<div className="fixed inset-0  bg-opacity-30 flex items-center justify-center z-50">
-			<div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+		<div className="fixed inset-0  bg-opacity-30 flex items-center justify-center z-50 rounded-lg border border-[#DEDBDB]">
+			<div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4">
 				<div className="px-6 py-4 border-b">
 					<h3 className="text-sm font-medium text-gray-700">
 						Choose the document type to generate
 					</h3>
 				</div>
-				<div className="p-6">
+				<div className="p-8">
 					<p className="text-gray-700">
-						Are you sure you want to proceed creating {docTypeLabel} Document?
+						Are you sure you want to proceed creating <b>{docTypeLabel}</b>{" "}
+						Document?
 					</p>
 
 					<div className="flex justify-end gap-4 mt-6">
@@ -22,7 +23,7 @@ function DocumentConfirmModal({ show, docTypeLabel, onConfirm, onCancel }) {
 						</button>
 						<button
 							onClick={onConfirm}
-							className="bg-pink-400 text-white px-4 py-2 rounded">
+							className="bg-[#E31937] text-white px-4 py-2 rounded">
 							yes
 						</button>
 					</div>
