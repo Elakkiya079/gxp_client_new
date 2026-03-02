@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+	useState,
+	useEffect,
+	useCallback,
+	useMemo,
+	useRef,
+} from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AIQueryService from "../services/AIQueryService";
 import Header from "../components/Header";
@@ -132,17 +138,20 @@ export default function DocumentGenerator() {
 		setIsGlobalEditing(false);
 	}, [arpDocument, sectionEditState]);
 
-	const toggleSectionEdit = useCallback((heading) => {
-		if (!heading) return;
-		setSectionEditState((prev) => {
-			if (!isGlobalEditing) return prev;
-			const current = prev[heading] || { isEditing: false, value: "" };
-			return {
-				...prev,
-				[heading]: { ...current, isEditing: !current.isEditing },
-			};
-		});
-	}, [isGlobalEditing]);
+	const toggleSectionEdit = useCallback(
+		(heading) => {
+			if (!heading) return;
+			setSectionEditState((prev) => {
+				if (!isGlobalEditing) return prev;
+				const current = prev[heading] || { isEditing: false, value: "" };
+				return {
+					...prev,
+					[heading]: { ...current, isEditing: !current.isEditing },
+				};
+			});
+		},
+		[isGlobalEditing],
+	);
 
 	const updateSectionValue = useCallback((heading, value) => {
 		setSectionEditState((prev) => {
@@ -160,9 +169,14 @@ export default function DocumentGenerator() {
 
 		const container = docScrollRef.current;
 
+		// Compute a dynamic offset based on the header's actual height (fallback to 64px)
+		const headerEl = document.querySelector("header");
+		const headerHeight =
+			headerEl ? headerEl.getBoundingClientRect().height : 64;
+
 		// If the document is inside its own scroll container (preferred), scroll that container.
 		if (container) {
-			const offset = 24;
+			const offset = headerHeight + 8; // small extra spacing
 			const elRect = el.getBoundingClientRect();
 			const containerRect = container.getBoundingClientRect();
 			const targetTop =
@@ -174,8 +188,10 @@ export default function DocumentGenerator() {
 			return;
 		}
 
-		// Fallback: scroll the window.
-		el.scrollIntoView({ behavior: "smooth", block: "start" });
+		// Fallback: scroll the window and account for header height
+		const scrollTop =
+			window.scrollY + el.getBoundingClientRect().top - headerHeight - 8;
+		window.scrollTo({ top: scrollTop, behavior: "smooth" });
 	}, []);
 
 	const getPreferredColumns = (sheetName, sampleRow) => {
@@ -183,11 +199,13 @@ export default function DocumentGenerator() {
 		const normalized = String(sheetName || "").toLowerCase();
 
 		const desired =
-			normalized.includes("story") ? ["Key", "Summary", "Regulation", "Testing Activities", "Status"]
+			normalized.includes("story") ?
+				["Key", "Summary", "Regulation", "Testing Activities", "Status"]
 			: normalized.includes("defects introduced") ?
 				["Key", "Summary", "T", "Status", "Environment"]
-			: normalized.includes("defect") ? ["Key", "Summary", "T", "Status", "Environment"]
-			: available;
+			: normalized.includes("defect") ?
+				["Key", "Summary", "T", "Status", "Environment"]
+			:	available;
 
 		const set = new Set(available);
 		const preferred = desired.filter((c) => set.has(c));
@@ -283,9 +301,7 @@ export default function DocumentGenerator() {
 		if (Array.isArray(content)) {
 			if (!content.length) {
 				return (
-					<p className="text-sm text-gray-500 italic">
-						No entries available.
-					</p>
+					<p className="text-sm text-gray-500 italic">No entries available.</p>
 				);
 			}
 
@@ -358,7 +374,7 @@ export default function DocumentGenerator() {
 
 		if (section?.subsections && Array.isArray(section.subsections)) {
 			return (
-				<section key={id} id={id} className="mb-10 scroll-mt-8">
+				<section key={id} id={id} className="mb-10 scroll-mt-16">
 					<h2 className="text-lg font-semibold text-gray-900 mb-4">
 						{section.heading}
 					</h2>
@@ -378,11 +394,9 @@ export default function DocumentGenerator() {
 
 		if (isEditableHeading) {
 			return (
-				<section key={id} id={id} className="mb-10 scroll-mt-8">
+				<section key={id} id={id} className="mb-10 scroll-mt-16">
 					<div className="flex items-center justify-between mb-3">
-						<h2 className="text-lg font-semibold text-gray-900">
-							{heading}
-						</h2>
+						<h2 className="text-lg font-semibold text-gray-900">{heading}</h2>
 						<button
 							type="button"
 							onClick={() => toggleSectionEdit(heading)}
@@ -431,7 +445,7 @@ export default function DocumentGenerator() {
 		}
 
 		return (
-			<section key={id} id={id} className="mb-10 scroll-mt-8">
+			<section key={id} id={id} className="mb-10 scroll-mt-16">
 				<h2 className="text-lg font-semibold text-gray-900 mb-3">
 					{section.heading}
 				</h2>
@@ -491,7 +505,9 @@ export default function DocumentGenerator() {
 						</aside>
 
 						{/* Scrollable document panel */}
-						<main ref={docScrollRef} className="flex-1 overflow-y-auto bg-white">
+						<main
+							ref={docScrollRef}
+							className="flex-1 overflow-y-auto bg-white">
 							<div className="max-w-5xl mx-auto px-8 py-8">
 								{/*<button
 									type="button"
@@ -560,7 +576,8 @@ export default function DocumentGenerator() {
 																Document ID
 															</th>
 															<td className="px-4 py-2 text-gray-900">
-																{arpDocument.document_metadata?.document_id || "—"}
+																{arpDocument.document_metadata?.document_id ||
+																	"—"}
 															</td>
 														</tr>
 														<tr className="border-b border-gray-200">
@@ -568,18 +585,40 @@ export default function DocumentGenerator() {
 																Version
 															</th>
 															<td className="px-4 py-2 text-gray-900">
-																{arpDocument.document_metadata?.document_version ||
-																	"—"}
+																{arpDocument.document_metadata
+																	?.document_version || "—"}
 															</td>
 														</tr>
-														<tr>
+														<tr className="border-b border-gray-200">
 															<th className="px-4 py-2 text-left font-semibold text-gray-700 bg-gray-50">
 																CR Number
 															</th>
 															<td className="px-4 py-2 text-gray-900">
-																{arpDocument.document_metadata?.cr_number || "—"}
+																{arpDocument.document_metadata?.cr_number ||
+																	"—"}
 															</td>
 														</tr>
+														{/*<tr>
+															<th className="px-4 py-2 text-left font-semibold text-gray-700 bg-gray-50">
+																Actions
+															</th>
+															<td className="px-4 py-2">
+																<div className="flex items-center gap-3">
+																	<button
+																		type="button"
+																		onClick={handleSave}
+																		className="px-3 py-1.5 rounded-md border border-red-600 text-red-600 bg-white text-xs font-medium">
+																		Save
+																	</button>
+																	<button
+																		type="button"
+																		onClick={handleGlobalEdit}
+																		className="px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium">
+																		Edit
+																	</button>
+																</div>
+															</td>
+														</tr>*/}
 													</tbody>
 												</table>
 											</div>
@@ -597,7 +636,9 @@ export default function DocumentGenerator() {
 					</div>
 				: loading ?
 					<div className="w-full max-w-6xl mx-auto px-8 py-10">
-						<div className="mt-10 text-gray-500 text-sm">Loading document...</div>
+						<div className="mt-10 text-gray-500 text-sm">
+							Loading document...
+						</div>
 					</div>
 				: error ?
 					<div className="w-full max-w-6xl mx-auto px-8 py-10">
@@ -632,8 +673,9 @@ export default function DocumentGenerator() {
 								const sampleRow = rows[0];
 								const columns = getPreferredColumns(sheetName, sampleRow);
 								const hideHeading =
-									String(sheetName || "").toLowerCase().trim() ===
-									"story artifacts";
+									String(sheetName || "")
+										.toLowerCase()
+										.trim() === "story artifacts";
 
 								if (!rows.length) return null;
 

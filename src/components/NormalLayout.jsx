@@ -11,6 +11,7 @@ function NormalLayout({
 	isChatDisabled,
 	onKeyPress,
 	onSendQuery,
+	onPause,
 	onFileNameClick,
 	onSourceLinkClick,
 	chatEndRef,
@@ -26,8 +27,14 @@ function NormalLayout({
 		}
 	};
 
+	const handleEditQuery = (text) => {
+		if (typeof setQuery === "function") {
+			setQuery(text || "");
+		}
+	};
+
 	return (
-		<div className="mt-8 flex flex-col items-center justify-start min-h-[calc(100vh-4rem)] overflow-y-auto py-12 px-6 pb-32">
+		<div className="mt-16 flex flex-col items-center justify-start min-h-[calc(100vh-4rem)] overflow-y-auto py-12 px-6 pb-32">
 			<div className="w-full max-w-4xl">
 				{chatHistory.length > 0 ?
 					<>
@@ -41,6 +48,7 @@ function NormalLayout({
 									chat={chat}
 									onFileNameClick={onFileNameClick}
 									onSourceLinkClick={onSourceLinkClick}
+									onEditQuery={handleEditQuery}
 								/>
 							))}
 							<div ref={chatEndRef} />
@@ -66,9 +74,11 @@ function NormalLayout({
 									{/* Text Area */}
 									<textarea
 										value={query}
-										onChange={(e) => !isChatDisabled && setQuery(e.target.value)}
+										onChange={(e) =>
+											!isChatDisabled && !isLoading && setQuery(e.target.value)
+										}
 										onKeyPress={onKeyPress}
-										disabled={isChatDisabled}
+										disabled={isChatDisabled || isLoading}
 										placeholder="Ask a question about documents, releases, SOPs, CRs or defects…"
 										className="w-full bg-transparent text-gray-700 placeholder-gray-400 focus:outline-none resize-none mb-4 text-base leading-relaxed"
 										rows="3"
@@ -76,6 +86,37 @@ function NormalLayout({
 
 									{/* Controls */}
 									<div className="flex items-center justify-end gap-3">
+										{/*<button
+											type="button"
+											onClick={onPause}
+											disabled={!isLoading}
+											className="px-3 py-1.5 text-xs rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+											<svg
+												width="14"
+												height="14"
+												viewBox="0 0 14 14"
+												fill="none"
+												xmlns="http://www.w3.org/2000/svg"
+												aria-hidden="true"
+												className="text-gray-600">
+												<rect
+													x="2"
+													y="2"
+													width="3"
+													height="10"
+													rx="0.8"
+													fill="currentColor"
+												/>
+												<rect
+													x="9"
+													y="2"
+													width="3"
+													height="10"
+													rx="0.8"
+													fill="currentColor"
+												/>
+											</svg>
+										</button>*/}
 										<button
 											onClick={onSendQuery}
 											disabled={isLoading || !query.trim() || isChatDisabled}
@@ -98,17 +139,21 @@ function NormalLayout({
 														fill="currentColor"
 														d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 												</svg>
-											:	  <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-											<circle cx="24" cy="24" r="24" fill="#ED1C24" />
-											<path 
-											  d="M20 16 L28 24 L20 32" 
-											  stroke="white" 
-											  stroke-width="3" 
-											  stroke-linecap="round" 
-											  stroke-linejoin="round" 
-											  fill="none"
-											/>
-										  </svg>
+											:	<svg
+													width="48"
+													height="48"
+													viewBox="0 0 48 48"
+													xmlns="http://www.w3.org/2000/svg">
+													<circle cx="24" cy="24" r="24" fill="#ED1C24" />
+													<path
+														d="M20 16 L28 24 L20 32"
+														stroke="white"
+														stroke-width="3"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														fill="none"
+													/>
+												</svg>
 											}
 										</button>
 									</div>

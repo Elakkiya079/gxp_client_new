@@ -17,6 +17,7 @@ function SplitScreenLayout({
 	isChatDisabled,
 	onKeyPress,
 	onSendQuery,
+	onPause,
 	onFileNameClick,
 	onSourceLinkClick,
 	onTemplateSelect,
@@ -48,10 +49,54 @@ function SplitScreenLayout({
 							{/* User Query */}
 							<div className="flex justify-end">
 								<div className="bg-pink-50 rounded-lg border border-pink-200 p-3 max-w-xs">
-									<h3 className="text-sm font-semibold text-gray-900 mb-1">
-										{chat.userQuery}
-									</h3>
-									<p className="text-xs text-gray-500">{chat.timestamp}</p>
+									<div className="flex items-start justify-between gap-2">
+										<div>
+											<h3 className="text-sm font-semibold text-gray-900 mb-1">
+												{chat.userQuery}
+											</h3>
+											<p className="text-xs text-gray-500">{chat.timestamp}</p>
+										</div>
+										<div className="flex items-center gap-1">
+											<button
+												type="button"
+												onClick={() =>
+													navigator?.clipboard?.writeText(chat.userQuery || "")
+												}
+												className="p-1 text-gray-400 hover:text-gray-600"
+												title="Copy">
+												<svg
+													className="w-3.5 h-3.5"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24">
+													<path
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														strokeWidth={2}
+														d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+													/>
+												</svg>
+											</button>
+											<button
+												type="button"
+												onClick={() => setQuery(chat.userQuery || "")}
+												className="p-1 text-gray-400 hover:text-gray-600"
+												title="Edit query">
+												<svg
+													className="w-3.5 h-3.5"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24">
+													<path
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														strokeWidth={2}
+														d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+													/>
+												</svg>
+											</button>
+										</div>
+									</div>
 								</div>
 							</div>
 
@@ -112,7 +157,7 @@ function SplitScreenLayout({
 													{isGenerating && spinner}
 													<span>
 														{isGenerating ?
-															"Generating..."
+															"Generating CR related to projects..."
 														:	"Processing your query..."}
 													</span>
 												</div>,
@@ -204,6 +249,7 @@ function SplitScreenLayout({
 						onSendQuery={onSendQuery}
 						isLoading={isLoading}
 						isDisabled={isChatDisabled}
+						onPause={onPause}
 					/>
 				</div>
 			</div>

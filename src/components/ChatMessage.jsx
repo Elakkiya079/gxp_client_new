@@ -4,8 +4,24 @@ import takedaLogo from "../assets/takeda_logo.svg";
 
 const PROCESSING_DELAY_MS = 3000;
 
-function ChatMessage({ chat, onFileNameClick, onSourceLinkClick }) {
+function ChatMessage({ chat, onFileNameClick, onSourceLinkClick, onEditQuery }) {
 	const [showGenerating, setShowGenerating] = useState(false);
+	const [copiedId, setCopiedId] = useState(null);
+
+	const handleCopy = (text, id) => {
+		if (!text) return;
+		if (navigator?.clipboard?.writeText) {
+			navigator.clipboard.writeText(text).catch(() => {});
+		}
+		setCopiedId(id || chat.id);
+		setTimeout(() => setCopiedId(null), 1500);
+	};
+
+	const handleEdit = () => {
+		if (typeof onEditQuery === "function") {
+			onEditQuery(chat.userQuery || "");
+		}
+	};
 
 	// After a few seconds in processing state, switch to "Generating..." with spinner
 	useEffect(() => {
@@ -19,7 +35,7 @@ function ChatMessage({ chat, onFileNameClick, onSourceLinkClick }) {
 
 	// Show processing state while loading
 	if (chat.isProcessing && !chat.tableData?.length) {
-		const message = showGenerating ? "Generating..." : "Processing your query...";
+		const message = showGenerating ? "Generating CR details related to projects..." : "Processing your query...";
 		return (
 			<div className="space-y-6">
 				{/* User Query */}
@@ -33,7 +49,11 @@ function ChatMessage({ chat, onFileNameClick, onSourceLinkClick }) {
 								<p className="text-xs text-gray-500">{chat.timestamp}</p>
 							</div>
 							<div className="flex items-center gap-2">
-								<button className="p-1 text-gray-400 hover:text-gray-600">
+								<button
+									type="button"
+									onClick={() => handleCopy(chat.userQuery, `${chat.id}-processing`)}
+									className="p-1 text-gray-400 hover:text-gray-600"
+									title={copiedId === `${chat.id}-processing` ? "Copied" : "Copy"}>
 									<svg
 										className="w-4 h-4"
 										fill="none"
@@ -47,7 +67,11 @@ function ChatMessage({ chat, onFileNameClick, onSourceLinkClick }) {
 										/>
 									</svg>
 								</button>
-								<button className="p-1 text-gray-400 hover:text-gray-600">
+								<button
+									type="button"
+									onClick={handleEdit}
+									className="p-1 text-gray-400 hover:text-gray-600"
+									title="Edit query">
 									<svg
 										className="w-4 h-4"
 										fill="none"
@@ -124,7 +148,11 @@ function ChatMessage({ chat, onFileNameClick, onSourceLinkClick }) {
 							<p className="text-xs text-gray-500">{chat.timestamp}</p>
 						</div>
 						<div className="flex items-center gap-2">
-							<button className="p-1 text-gray-400 hover:text-gray-600">
+							<button
+								type="button"
+								onClick={() => handleCopy(chat.userQuery, chat.id)}
+								className="p-1 text-gray-400 hover:text-gray-600"
+								title={copiedId === chat.id ? "Copied" : "Copy"}>
 								<svg
 									className="w-4 h-4"
 									fill="none"
@@ -138,7 +166,11 @@ function ChatMessage({ chat, onFileNameClick, onSourceLinkClick }) {
 									/>
 								</svg>
 							</button>
-							<button className="p-1 text-gray-400 hover:text-gray-600">
+							<button
+								type="button"
+								onClick={handleEdit}
+								className="p-1 text-gray-400 hover:text-gray-600"
+								title="Edit query">
 								<svg
 									className="w-4 h-4"
 									fill="none"
@@ -172,7 +204,9 @@ function ChatMessage({ chat, onFileNameClick, onSourceLinkClick }) {
 							<p className="text-xs text-gray-500">{chat.timestamp}</p>
 						</div>
 						<div className="bg-gray-100 rounded-lg border border-gray-200 p-4">
-							<p className="text-sm text-gray-700">{chat.responseMessage}</p>
+							<p className="text-sm text-gray-700 whitespace-pre-line">
+								{chat.responseMessage}
+							</p>
 						</div>
 					</div>
 				</div>

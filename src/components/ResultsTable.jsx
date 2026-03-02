@@ -223,7 +223,7 @@ function ResultsTable({
 			</div>
 			{/* Access Required panel for document-detail format and change-request (Document Id) table */}
 			{(isDocumentDetailFormat || (isChangeRequestFormat && !isElluminate)) && (
-				<div className="fixed bottom-0 mt-4 mb-4">
+				<div className="mt-6">
 					<div className="w-full border rounded-lg bg-white shadow-sm grid grid-cols-12 items-center gap-4 px-6 py-4">
 						<div className="col-span-10">
 							<h3 className="font-semibold text-sm">Access Required</h3>

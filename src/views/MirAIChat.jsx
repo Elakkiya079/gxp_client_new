@@ -47,6 +47,7 @@ function MirAIChat() {
 	}, [chatHistory]);
 	const [showLinkConfirmation, setShowLinkConfirmation] = useState(false);
 	const [selectedLink, setSelectedLink] = useState(null);
+	const isCancelledRef = useRef(false);
 
 	// Helper to detect when backend asks to open the document generator
 	const isSendProcessYes = (data) => {
@@ -84,6 +85,7 @@ function MirAIChat() {
 		const currentQuery = (override ?? query).trim();
 		if (currentQuery) {
 			setIsLoading(true);
+			isCancelledRef.current = false;
 			setQuery("");
 
 			// Determine the previous chatbot response to send along with this query
@@ -127,6 +129,11 @@ function MirAIChat() {
 				);
 				
 				console.log("result------->", result);
+
+				// If user paused, ignore this response
+				if (isCancelledRef.current) {
+					return;
+				}
 
 				// Update thread ID for session memory
 				if (result.threadId) {
@@ -245,7 +252,9 @@ function MirAIChat() {
 					),
 				);
 			} finally {
-				setIsLoading(false);
+				if (!isCancelledRef.current) {
+					setIsLoading(false);
+				}
 			}
 		}
 	};
@@ -310,6 +319,7 @@ function MirAIChat() {
 
 	const handleChangeRequestClick = async (changeRequestId) => {
 		setIsLoading(true);
+		isCancelledRef.current = false;
 
 		// Add processing message with change request ID
 		const messageId = Date.now();
@@ -338,6 +348,11 @@ function MirAIChat() {
 			
 			
 			console.log("Change request details:", result);
+
+			// If user paused, ignore this response
+			if (isCancelledRef.current) {
+				return;
+			}
 
 			// Update thread ID for session memory
 			if (result.threadId) {
@@ -404,7 +419,9 @@ function MirAIChat() {
 				),
 			);
 		} finally {
-			setIsLoading(false);
+			if (!isCancelledRef.current) {
+				setIsLoading(false);
+			}
 		}
 	};
 
@@ -439,6 +456,28 @@ function MirAIChat() {
 				)
 		:	null;
 
+	const handleEditQuery = (text) => {
+		setQuery(text || "");
+	};
+
+	const handlePause = () => {
+		if (!isLoading) return;
+		isCancelledRef.current = true;
+		AIQueryService.disconnectWebsocket();
+		setIsLoading(false);
+		setChatHistory((prev) =>
+			prev.map((chat) =>
+				chat.isProcessing ?
+					{
+						...chat,
+						isProcessing: false,
+						responseMessage: "You have paused this response.",
+					}
+				:	chat,
+			),
+		);
+	};
+
 	return (
 		<div className="min-h-screen bg-gray-50">
 			<Header onLogoClick={handleClearAll} />
@@ -460,6 +499,7 @@ function MirAIChat() {
 					isChatDisabled={isChatDisabled}
 					onKeyPress={handleKeyPress}
 					onSendQuery={handleSendQuery}
+					onPause={handlePause}
 					onFileNameClick={handleFileNameClick}
 					onSourceLinkClick={handleSourceLinkClick}
 					onTemplateSelect={(template) => {
@@ -481,6 +521,7 @@ function MirAIChat() {
 					isChatDisabled={isChatDisabled}
 					onKeyPress={handleKeyPress}
 					onSendQuery={handleSendQuery}
+					onPause={handlePause}
 					onFileNameClick={handleFileNameClick}
 					onSourceLinkClick={handleSourceLinkClick}
 					chatEndRef={chatEndRef}
