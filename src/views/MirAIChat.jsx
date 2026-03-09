@@ -1,30 +1,28 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { RouteKeys } from "../routes/route-keys.jsx";
-import  AIQueryService  from "../services/AIQueryService";
+import AIQueryService from "../services/AIQueryService";
 import Header from "../components/Header";
 import LinkConfirmationModal from "../components/LinkConfirmationModal";
 import SplitScreenLayout from "../components/SplitScreenLayout";
 import NormalLayout from "../components/NormalLayout";
 
 function MirAIChat() {
-	// Handler to clear all chat and state, and return to NormalLayout
 	const handleClearAll = () => {
 		setChatHistory([]);
 		setThreadId(null);
 		setQuery("");
 		setIsChatDisabled(false);
 	};
+
 	const navigate = useNavigate();
 	const [query, setQuery] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [chatHistory, setChatHistory] = useState([]);
 	const [threadId, setThreadId] = useState(null);
 	const [isChatDisabled, setIsChatDisabled] = useState(false);
-	// Session storage key for persisting chat history within the browser tab
 	const STORAGE_KEY = "mirai_chat_history";
 
-	// Load persisted chat history from sessionStorage on mount
 	useEffect(() => {
 		try {
 			const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -37,7 +35,6 @@ function MirAIChat() {
 		}
 	}, []);
 
-	// Persist chat history to sessionStorage whenever it changes
 	useEffect(() => {
 		try {
 			sessionStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
@@ -45,11 +42,12 @@ function MirAIChat() {
 			console.warn("Failed to save chat history to sessionStorage", e);
 		}
 	}, [chatHistory]);
+
 	const [showLinkConfirmation, setShowLinkConfirmation] = useState(false);
 	const [selectedLink, setSelectedLink] = useState(null);
 	const isCancelledRef = useRef(false);
+	const chatEndRef = useRef(null);
 
-	// Helper to detect when backend asks to open the document generator
 	const isSendProcessYes = (data) => {
 		if (!data) return false;
 		const candidates = [
@@ -70,192 +68,204 @@ function MirAIChat() {
 		}
 		return false;
 	};
-	const chatEndRef = useRef(null);
-	const handleSendQuery = async (override) => {
-		// If chat has been disabled (e.g. after confirmation), block further sends
-		if (isChatDisabled) {
-			return;
+
+	/**
+	 * Parse ONE frame's data field:
+	 *   textMessage : string | null   → LEFT side bubble
+	 *   tableData   : object[] | null → RIGHT side table
+	 */
+	const parseFrameData = (frameData, frameMessage) => {
+		if (typeof frameData === "string") {
+			return { textMessage: frameData, tableData: null };
 		}
-		// Allow being called as an event handler or with a custom query string
+		if (Array.isArray(frameData)) {
+			return { textMessage: null, tableData: frameData };
+		}
+		if (Array.isArray(frameData?.data)) {
+			return { textMessage: null, tableData: frameData.data };
+		}
+		if (frameData?.received_text) {
+			return { textMessage: frameData.received_text, tableData: null };
+		}
+		if (frameData?.message) {
+			const isGeneric =
+				frameData.message.includes("Request processed") ||
+				/Retrieved \d+ (change request|document|item)/.test(frameData.message);
+			if (!isGeneric)
+				return { textMessage: frameData.message, tableData: null };
+		}
+		if (frameData?.sources?.selected_sources) {
+			return {
+				textMessage: null,
+				tableData: frameData.sources.selected_sources,
+			};
+		}
+		if (frameMessage) {
+			const isGeneric =
+				frameMessage.includes("Request processed") ||
+				/Retrieved \d+ (change request|document|item)/.test(frameMessage);
+			if (!isGeneric) return { textMessage: frameMessage, tableData: null };
+		}
+		return { textMessage: null, tableData: null };
+	};
+
+	/**
+	 * Walk ALL frames in the result and split into:
+	 *   responseMessages : string[]  — text for LEFT bubbles
+	 *   tableData        : object[]  — latest array data for RIGHT panel
+	 */
+	const processAllFrames = (result) => {
+		const responseMessages = [];
+		let tableData = [];
+
+		const frames =
+			Array.isArray(result.frames) && result.frames.length > 0 ?
+				result.frames
+			:	[
+					{
+						data: result.data,
+						message: result.message,
+						threadId: result.threadId,
+					},
+				];
+
+		for (const frame of frames) {
+			const { textMessage, tableData: frameTable } = parseFrameData(
+				frame.data,
+				frame.message,
+			);
+			if (textMessage) responseMessages.push(textMessage);
+			if (frameTable && frameTable.length > 0) tableData = frameTable;
+		}
+
+		return { responseMessages, tableData };
+	};
+
+	const handleSendQuery = async (override) => {
+		if (isChatDisabled) return;
+
 		if (override && typeof override === "object" && override.preventDefault) {
 			override.preventDefault();
 			override = undefined;
 		}
 
 		const currentQuery = (override ?? query).trim();
-		if (currentQuery) {
-			setIsLoading(true);
-			isCancelledRef.current = false;
-			setQuery("");
+		if (!currentQuery) return;
 
-			// Determine the previous chatbot response to send along with this query
-			let previousChatbotResponse = null;
-			if (chatHistory.length > 0) {
-				const lastChat = chatHistory[chatHistory.length - 1];
-				const firstRow = lastChat.tableData?.[0];
+		setIsLoading(true);
+		isCancelledRef.current = false;
+		setQuery("");
 
-				// If the UI is showing the "artifacts" confirmation question, send that
-				if (firstRow && firstRow.document_id) {
-					previousChatbotResponse =
-						"Did you receive all the required artifacts linked to the requested CR number?";
-				} else if (lastChat.responseMessage) {
-					// Otherwise, send the last chatbot response message (if any)
-					previousChatbotResponse = lastChat.responseMessage;
-				}
+		let previousChatbotResponse = null;
+		if (chatHistory.length > 0) {
+			const lastChat = chatHistory[chatHistory.length - 1];
+			const firstRow = lastChat.tableData?.[0];
+			if (firstRow?.document_id) {
+				previousChatbotResponse =
+					"Did you receive all the required artifacts linked to the requested CR number?";
+			} else if (lastChat.responseMessages?.length > 0) {
+				previousChatbotResponse =
+					lastChat.responseMessages[lastChat.responseMessages.length - 1];
+			} else if (lastChat.responseMessage) {
+				previousChatbotResponse = lastChat.responseMessage;
+			}
+		}
+
+		const messageId = Date.now();
+		setChatHistory((prev) => [
+			...prev,
+			{
+				id: messageId,
+				userQuery: currentQuery,
+				response: null,
+				timestamp: formatTimestamp(),
+				sources: [],
+				responseMessage: "Processing your query...",
+				responseMessages: [],
+				tableData: [],
+				isProcessing: true,
+			},
+		]);
+
+		try {
+			const result = await AIQueryService.sendProcessQuery(
+				currentQuery,
+				null,
+				threadId,
+				previousChatbotResponse,
+			);
+
+			console.log("result------->", result);
+
+			if (isCancelledRef.current) return;
+			if (result.threadId) setThreadId(result.threadId);
+
+			if (result?.success && isSendProcessYes(result.data)) {
+				navigate(RouteKeys.GenerateDocument, {
+					state: { aiResponse: result.data, query: currentQuery },
+				});
+				setIsLoading(false);
+				return;
 			}
 
-			// Add processing message with user query
-			const messageId = Date.now();
-			setChatHistory((prev) => [
-				...prev,
-				{
-					id: messageId,
-					userQuery: currentQuery,
-					response: null,
-					timestamp: formatTimestamp(),
-					sources: [],
-					responseMessage: "Processing your query...",
-					tableData: [],
-					isProcessing: true,
-				},
-			]);
+			const { responseMessages, tableData } = processAllFrames(result);
+			const lastTextMessage =
+				responseMessages.length > 0 ?
+					responseMessages[responseMessages.length - 1]
+				:	"";
 
-			try {
-				const result = await AIQueryService.sendProcessQuery(
-					currentQuery,
-					null,
-					threadId,
-					previousChatbotResponse,
-				);
-				
-				console.log("result------->", result);
+			const finalConfirmationText =
+				"Thank you for your confirmation, Reload page to Continue";
+			if (responseMessages.includes(finalConfirmationText)) {
+				setIsChatDisabled(true);
+				AIQueryService.disconnectWebsocket();
+			}
 
-				// If user paused, ignore this response
-				if (isCancelledRef.current) {
-					return;
-				}
+			setChatHistory((prev) =>
+				prev.map((chat) =>
+					chat.id !== messageId ?
+						chat
+					:	{
+							...chat,
+							response: result,
+							responseMessages,
+							responseMessage: lastTextMessage,
+							tableData,
+							sources: tableData,
+							isProcessing: false,
+						},
+				),
+			);
 
-				// Update thread ID for session memory
-				if (result.threadId) {
-					setThreadId(result.threadId);
-				}
-
-				// If backend instructs to open the document generator, navigate there
-				if (result?.success && isSendProcessYes(result.data)) {
-					navigate(RouteKeys.GenerateDocument, {
-						state: { aiResponse: result.data, query: currentQuery },
-					});
-					setIsLoading(false);
-					return;
-				}
-
-				// Parse the response based on its structure
-				let chatData = {
-					id: messageId,
-					userQuery: currentQuery,
-					response: result,
-					timestamp: formatTimestamp(),
-					sources: [],
-					responseMessage: "",
-					tableData: [],
-				};
-
-				if (result.success && result.data) {
-					const data = result.data;
-
-					// If backend sends a plain string (e.g. "Query information is not sufficient...")
-					if (typeof data === "string") {
-						chatData.responseMessage = data;
-					}
-					// Check if response data IS an array directly (ServiceNow format)
-					else if (Array.isArray(data)) {
-						// Only show table, no message for array data
-						chatData.tableData = data;
-						chatData.sources = data;
-					}
-					// Check if response has 'data' array (elluminate format)
-					else if (Array.isArray(data.data)) {
-						// Only show table, no message for array data
-						chatData.tableData = data.data;
-						chatData.sources = data.data;
-					}
-					// Check if response has 'received_text' (random query format)
-					else if (data.received_text) {
-						chatData.responseMessage = data.received_text;
-					}
-					// For meaningful messages (skip generic ones)
-					else if (data.message) {
-						// Skip "Request processed successfully" and "Retrieved X" messages
-						if (
-							!data.message.includes("Request processed") &&
-							!data.message.match(
-								/Retrieved \d+ (change request|document|item)/,
-							)
-						) {
-							chatData.responseMessage = data.message;
+			console.log(
+				"Frames received:",
+				result.frames?.length ?? 1,
+				"| Text messages:",
+				responseMessages.length,
+				"| Table rows:",
+				tableData.length,
+			);
+		} catch (error) {
+			console.error("Error sending query:", error);
+			const errorMessage =
+				error?.error ||
+				error?.message ||
+				"Something went wrong. Please try again.";
+			setChatHistory((prev) =>
+				prev.map((chat) =>
+					chat.id === messageId ?
+						{
+							...chat,
+							responseMessage: errorMessage,
+							responseMessages: [errorMessage],
+							isProcessing: false,
+							tableData: [],
 						}
-					}
-					// Original format with sources
-					else if (data?.sources?.selected_sources) {
-						chatData.sources = data.sources.selected_sources;
-					}
-				}
-
-				// Also filter top-level result.message if it's generic
-				if (
-					result.message &&
-					!result.message.includes("Request processed") &&
-					!result.message.match(
-						/Retrieved \d+ (change request|document|item)/,
-					) &&
-					!chatData.tableData.length // Only use if we don't have table data
-				) {
-					chatData.responseMessage = result.message;
-				}
-
-				// If backend asks to end the conversation and reload, disable chat and close socket
-				const finalConfirmationText =
-					"Thank you for your confirmation, Reload page to Continue";
-				if (chatData.responseMessage === finalConfirmationText) {
-					setIsChatDisabled(true);
-					AIQueryService.disconnectWebsocket();
-				}
-
-				// Replace the processing message with the actual response
-				setChatHistory((prev) =>
-					prev.map((chat) => (chat.id === messageId ? chatData : chat)),
-				);
-
-				// Log for debugging
-				if (result.success) {
-					console.log("Query sent successfully:", result.data);
-				} else {
-					console.error("Query failed:", result.error);
-				}
-			} catch (error) {
-				console.error("Error sending query:", error);
-				const errorMessage =
-					error?.error ||
-					error?.message ||
-					"Something went wrong. Please try again.";
-
-				setChatHistory((prev) =>
-					prev.map((chat) =>
-						chat.id === messageId ?
-							{
-								...chat,
-								responseMessage: errorMessage,
-								isProcessing: false,
-								tableData: [],
-							}
-						:	chat,
-					),
-				);
-			} finally {
-				if (!isCancelledRef.current) {
-					setIsLoading(false);
-				}
-			}
+					:	chat,
+				),
+			);
+		} finally {
+			if (!isCancelledRef.current) setIsLoading(false);
 		}
 	};
 
@@ -297,12 +307,10 @@ function MirAIChat() {
 	};
 
 	const handleFileNameClick = (fileName) => {
-		// Check if it's a change request ID (format: CHG0040007 or TKD-CR-XXX)
 		const changeRequestRegex = /^(CHG\d+|TKD-CR-.+)$/i;
 		if (fileName && changeRequestRegex.test(fileName)) {
 			handleChangeRequestClick(fileName);
 		} else {
-			// Original behavior for other file names
 			setChatHistory((prev) => [
 				...prev,
 				{
@@ -311,6 +319,7 @@ function MirAIChat() {
 					response: { success: true },
 					timestamp: formatTimestamp(),
 					sources: [],
+					responseMessages: [],
 					isFileSelection: true,
 				},
 			]);
@@ -321,7 +330,6 @@ function MirAIChat() {
 		setIsLoading(true);
 		isCancelledRef.current = false;
 
-		// Add processing message with change request ID
 		const messageId = Date.now();
 		setChatHistory((prev) => [
 			...prev,
@@ -332,34 +340,25 @@ function MirAIChat() {
 				timestamp: formatTimestamp(),
 				sources: [],
 				responseMessage: "Processing your query...",
+				responseMessages: [],
 				tableData: [],
 				isProcessing: true,
 			},
 		]);
 
 		try {
-			// Use sendProcessQuery with the change request ID
 			const result = await AIQueryService.sendProcessQuery(
 				changeRequestId,
 				null,
 				threadId,
 				null,
 			);
-			
-			
+
 			console.log("Change request details:", result);
 
-			// If user paused, ignore this response
-			if (isCancelledRef.current) {
-				return;
-			}
+			if (isCancelledRef.current) return;
+			if (result.threadId) setThreadId(result.threadId);
 
-			// Update thread ID for session memory
-			if (result.threadId) {
-				setThreadId(result.threadId);
-			}
-
-			// If backend indicates to open document generator, navigate there
 			if (result?.success && isSendProcessYes(result.data)) {
 				navigate(RouteKeys.GenerateDocument, {
 					state: { aiResponse: result.data, query: changeRequestId },
@@ -368,74 +367,54 @@ function MirAIChat() {
 				return;
 			}
 
-			// Parse the response
-			let chatData = {
-				id: messageId,
-				userQuery: changeRequestId,
-				response: result,
-				timestamp: formatTimestamp(),
-				sources: [],
-				responseMessage: "",
-				tableData: [],
-			};
+			const { responseMessages, tableData } = processAllFrames(result);
+			const lastTextMessage =
+				responseMessages.length > 0 ?
+					responseMessages[responseMessages.length - 1]
+				:	"";
 
-			if (result.success && result.data) {
-				const data = result.data;
-
-				// If backend sends a plain string, show it as the message
-				if (typeof data === "string") {
-					chatData.responseMessage = data;
-				}
-				// Check if response data IS an array directly (ServiceNow format)
-				else if (Array.isArray(data)) {
-					// Only show table, no message for array data
-					chatData.tableData = data;
-					chatData.sources = data;
-				}
-				// Check if response has 'data' array (documents format)
-				else if (Array.isArray(data.data)) {
-					// Only show table, no message for array data
-					chatData.tableData = data.data;
-					chatData.sources = data.data;
-				}
-			}
-
-			// Replace the processing message with the actual response
 			setChatHistory((prev) =>
-				prev.map((chat) => (chat.id === messageId ? chatData : chat)),
+				prev.map((chat) =>
+					chat.id !== messageId ?
+						chat
+					:	{
+							...chat,
+							response: result,
+							responseMessages,
+							responseMessage: lastTextMessage,
+							tableData,
+							sources: tableData,
+							isProcessing: false,
+						},
+				),
 			);
 		} catch (error) {
 			console.error("Error getting change request details:", error);
-			// Replace processing message with error
 			setChatHistory((prev) =>
 				prev.map((chat) =>
 					chat.id === messageId ?
 						{
 							...chat,
 							responseMessage: "Error loading details",
+							responseMessages: ["Error loading details"],
 							isProcessing: false,
 						}
 					:	chat,
 				),
 			);
 		} finally {
-			if (!isCancelledRef.current) {
-				setIsLoading(false);
-			}
+			if (!isCancelledRef.current) setIsLoading(false);
 		}
 	};
 
-	// Auto-scroll to bottom when new messages arrive
 	useEffect(() => {
 		if (chatEndRef.current) {
 			chatEndRef.current.scrollIntoView({ behavior: "smooth" });
 		}
 	}, [chatHistory]);
 
-	// Check if any chat has table data (split screen only when data array is present)
 	const templateRequestRegex = /please choose an arp template/i;
 
-	// Show split screen when a chat has table data OR when AI asks to choose an ARP template
 	const hasTableData = chatHistory.some(
 		(chat) =>
 			chat.tableData?.length > 0 ||
@@ -443,7 +422,6 @@ function MirAIChat() {
 				templateRequestRegex.test(chat.responseMessage)),
 	);
 
-	// Get the LATEST chat for split-screen display (prefers chats with table data or template request)
 	const tableDataChat =
 		chatHistory.length > 0 ?
 			[...chatHistory]
@@ -455,10 +433,6 @@ function MirAIChat() {
 							templateRequestRegex.test(chat.responseMessage)),
 				)
 		:	null;
-
-	const handleEditQuery = (text) => {
-		setQuery(text || "");
-	};
 
 	const handlePause = () => {
 		if (!isLoading) return;
@@ -472,6 +446,7 @@ function MirAIChat() {
 						...chat,
 						isProcessing: false,
 						responseMessage: "You have paused this response.",
+						responseMessages: ["You have paused this response."],
 					}
 				:	chat,
 			),
@@ -488,7 +463,6 @@ function MirAIChat() {
 				onCancel={handleCancelLink}
 			/>
 
-			{/* Main Chat Interface */}
 			{hasTableData && tableDataChat ?
 				<SplitScreenLayout
 					chatHistory={chatHistory}
@@ -503,7 +477,6 @@ function MirAIChat() {
 					onFileNameClick={handleFileNameClick}
 					onSourceLinkClick={handleSourceLinkClick}
 					onTemplateSelect={(template) => {
-						// navigate to document generator with preselected template
 						navigate(RouteKeys.GenerateDocument, {
 							state: {
 								aiResponse: tableDataChat?.response || tableDataChat,

@@ -4,7 +4,12 @@ import takedaLogo from "../assets/takeda_logo.svg";
 
 const PROCESSING_DELAY_MS = 3000;
 
-function ChatMessage({ chat, onFileNameClick, onSourceLinkClick, onEditQuery }) {
+function ChatMessage({
+	chat,
+	onFileNameClick,
+	onSourceLinkClick,
+	onEditQuery,
+}) {
 	const [showGenerating, setShowGenerating] = useState(false);
 	const [copiedId, setCopiedId] = useState(null);
 
@@ -23,74 +28,102 @@ function ChatMessage({ chat, onFileNameClick, onSourceLinkClick, onEditQuery }) 
 		}
 	};
 
-	// After a few seconds in processing state, switch to "Generating..." with spinner
 	useEffect(() => {
 		if (!chat.isProcessing) {
 			setShowGenerating(false);
 			return;
 		}
-		const timer = setTimeout(() => setShowGenerating(true), PROCESSING_DELAY_MS);
+		const timer = setTimeout(
+			() => setShowGenerating(true),
+			PROCESSING_DELAY_MS,
+		);
 		return () => clearTimeout(timer);
 	}, [chat.isProcessing]);
 
-	// Show processing state while loading
-	if (chat.isProcessing && !chat.tableData?.length) {
-		const message = showGenerating ? "Generating CR details related to projects..." : "Processing your query...";
-		return (
-			<div className="space-y-6">
-				{/* User Query */}
-				<div className="flex justify-end">
-					<div className="bg-pink-50 rounded-lg border border-pink-200 p-4 max-w-2xl">
-						<div className="flex items-start justify-between">
-							<div>
-								<h3 className="text-base font-semibold text-gray-900 mb-1">
-									{chat.userQuery}
-								</h3>
-								<p className="text-xs text-gray-500">{chat.timestamp}</p>
-							</div>
-							<div className="flex items-center gap-2">
-								<button
-									type="button"
-									onClick={() => handleCopy(chat.userQuery, `${chat.id}-processing`)}
-									className="p-1 text-gray-400 hover:text-gray-600"
-									title={copiedId === `${chat.id}-processing` ? "Copied" : "Copy"}>
-									<svg
-										className="w-4 h-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24">
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth={2}
-											d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-										/>
-									</svg>
-								</button>
-								<button
-									type="button"
-									onClick={handleEdit}
-									className="p-1 text-gray-400 hover:text-gray-600"
-									title="Edit query">
-									<svg
-										className="w-4 h-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24">
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth={2}
-											d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-										/>
-									</svg>
-								</button>
-							</div>
-						</div>
+	// ── Shared user query bubble ──
+	const userQueryBubble = (
+		<div className="flex justify-end">
+			<div className="bg-pink-50 rounded-lg border border-pink-200 p-4 max-w-2xl">
+				<div className="flex items-start justify-between">
+					<div>
+						<h3 className="text-base font-semibold text-gray-900 mb-1">
+							{chat.userQuery}
+						</h3>
+						<p className="text-xs text-gray-500">{chat.timestamp}</p>
+					</div>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={() => handleCopy(chat.userQuery, chat.id)}
+							className="p-1 text-gray-400 hover:text-gray-600"
+							title={copiedId === chat.id ? "Copied" : "Copy"}>
+							<svg
+								className="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24">
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+								/>
+							</svg>
+						</button>
+						<button
+							type="button"
+							onClick={handleEdit}
+							className="p-1 text-gray-400 hover:text-gray-600"
+							title="Edit query">
+							<svg
+								className="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24">
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+								/>
+							</svg>
+						</button>
 					</div>
 				</div>
+			</div>
+		</div>
+	);
 
-				{/* Processing Indicator */}
+	// ── Helper: single AI bubble ──
+	const aiBubble = (content, key) => (
+		<div key={key} className="flex justify-start">
+			<div className="max-w-2xl">
+				<div className="flex items-center gap-2 mb-1">
+					<div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center overflow-hidden">
+						<img
+							src={takedaLogo}
+							alt="Assistant"
+							className="w-6 h-6 object-contain"
+						/>
+					</div>
+					<p className="text-xs text-gray-500">{chat.timestamp}</p>
+				</div>
+				<div className="bg-gray-100 rounded-lg border border-gray-200 p-4">
+					{content}
+				</div>
+			</div>
+		</div>
+	);
+
+	// ── Processing state ──
+	if (chat.isProcessing && !chat.tableData?.length) {
+		const message =
+			showGenerating ?
+				"Generating CR details related to projects..."
+			:	"Processing your query...";
+		return (
+			<div className="space-y-6">
+				{userQueryBubble}
 				<div className="flex justify-start">
 					<div className="max-w-2xl">
 						<div className="flex items-center gap-2 mb-1">
@@ -135,90 +168,32 @@ function ChatMessage({ chat, onFileNameClick, onSourceLinkClick, onEditQuery }) 
 		);
 	}
 
+	// ── All text messages — prefer responseMessages[], fall back to responseMessage ──
+	const textMessages =
+		Array.isArray(chat.responseMessages) && chat.responseMessages.length > 0 ?
+			chat.responseMessages
+		: chat.responseMessage ? [chat.responseMessage]
+		: [];
+
 	return (
 		<div className="space-y-6">
-			{/* User Query */}
-			<div className="flex justify-end">
-				<div className="bg-pink-50 rounded-lg border border-pink-200 p-4 max-w-2xl">
-					<div className="flex items-start justify-between">
-						<div>
-							<h3 className="text-base font-semibold text-gray-900 mb-1">
-								{chat.userQuery}
-							</h3>
-							<p className="text-xs text-gray-500">{chat.timestamp}</p>
-						</div>
-						<div className="flex items-center gap-2">
-							<button
-								type="button"
-								onClick={() => handleCopy(chat.userQuery, chat.id)}
-								className="p-1 text-gray-400 hover:text-gray-600"
-								title={copiedId === chat.id ? "Copied" : "Copy"}>
-								<svg
-									className="w-4 h-4"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24">
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-									/>
-								</svg>
-							</button>
-							<button
-								type="button"
-								onClick={handleEdit}
-								className="p-1 text-gray-400 hover:text-gray-600"
-								title="Edit query">
-								<svg
-									className="w-4 h-4"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24">
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-									/>
-								</svg>
-							</button>
-						</div>
-					</div>
-				</div>
-			</div>
+			{userQueryBubble}
 
-			{/* AI Response Message */}
-			{chat.responseMessage && (
-				<div className="flex justify-start">
-					<div className="max-w-2xl">
-						<div className="flex items-center gap-2 mb-1">
-							<div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center overflow-hidden">
-								<img
-									src={takedaLogo}
-									alt="Assistant"
-									className="w-6 h-6 object-contain"
-								/>
-							</div>
-							<p className="text-xs text-gray-500">{chat.timestamp}</p>
-						</div>
-						<div className="bg-gray-100 rounded-lg border border-gray-200 p-4">
-							<p className="text-sm text-gray-700 whitespace-pre-line">
-								{chat.responseMessage}
-							</p>
-						</div>
-					</div>
-				</div>
+			{/* One bubble per text message received */}
+			{textMessages.map((msg, idx) =>
+				aiBubble(
+					<p className="text-sm text-gray-700 whitespace-pre-line">{msg}</p>,
+					`msg-${idx}`,
+				),
 			)}
-			
 
-			{/* Results Table for sources or table data */}
-			{(chat.sources.length > 0 || chat.tableData?.length > 0) && (
+			{/* Results table (shown below text messages) */}
+			{(chat.sources?.length > 0 || chat.tableData?.length > 0) && (
 				<div>
-					{!chat.responseMessage && (
+					{textMessages.length === 0 && (
 						<p className="text-sm text-gray-600 mb-4">
-							The following matching records were found across the connected systems:
+							The following matching records were found across the connected
+							systems:
 						</p>
 					)}
 					{chat.tableData?.length > 0 ?

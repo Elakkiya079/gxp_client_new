@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
+import { MsalProvider } from "@azure/msal-react";
+import { msalInstance } from "./auth/msalConfig";
 import AIQueryService from './services/AIQueryService.js';
 
 // Eagerly connect the AI websocket so `sendProcessQuery` uses it
@@ -17,8 +19,12 @@ if (!rootElement) {
 }
 
 createRoot(rootElement).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+	<StrictMode>
+		<MsalProvider instance={msalInstance}>
+			<App />
+		</MsalProvider>
+	</StrictMode>,
 );
 
+
+ 
